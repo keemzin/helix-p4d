@@ -1,0 +1,21 @@
+# Local data directories mounted into the container
+p4-home/
+ssl/
+depots/
+server-root/
+checkpoints/
+my-backups/
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+
+# Operating system artifacts
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE and editor settings
+.vscode/
+.idea/

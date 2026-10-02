@@ -1,0 +1,62 @@
+# --------------------------------------------------------------------------------
+# Docker Compose for Perforce Helix P4D with Tailscale Sidecar
+# --------------------------------------------------------------------------------
+#
+# Access is restricted exclusively through Tailscale:
+# - No ports are published directly to the host or LAN.
+# - The p4-tailscale sidecar routes tailnet traffic to helix-p4d:1666 via serve rules.
+#
+# Usage:
+#   docker compose -f docker-compose.tailscale.yml up -d
+#
+# Prebuilt image on Docker Hub: johnsdoes/helix-p4d:2026.1
+# --------------------------------------------------------------------------------
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: p4-tailscale
+    hostname: p4-synology            # Node name shown in your tailnet
+    restart: unless-stopped
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+    volumes:
+      - ts_state:/var/lib/tailscale  # Preserves Tailscale login and serve rules
+    networks:
+      - tailscale
+
+  p4d:
+    image: johnsdoes/helix-p4d:2026.1
+    container_name: helix-p4d
+    restart: unless-stopped
+    # No "ports:" published. Access is restricted to the internal tailscale network.
+    environment:
+      NAME: ${NAME:-perforce-server}
+      P4NAME: ${P4NAME:-master}
+      P4TCP: ${P4TCP:-1666}
+      P4PORT: ${P4PORT:-1666}        # Use ssl:1666 if SSL is enabled
+      P4USER: ${P4USER:-admin}
+      P4PASSWD: ${P4PASSWD:-pass12349ers}
+      P4CASE: ${P4CASE:--C0}
+      P4CHARSET: ${P4CHARSET:-utf8}
+      JNL_PREFIX: ${JNL_PREFIX:-perforce-server}
+      P4EDITOR: ${P4EDITOR:-nano}
+    volumes:
+      # Server root: live database tables, configs, logs, journals
+      - P4_P4ROOT:/opt/perforce/p4/home/root
+      # Depots: bind-mounted from host storage or NAS (e.g. ./depots or /volume2/P4ROOT_DCKR)
+      - ${P4DEPOTS_PATH:-./depots}:/opt/perforce/p4/home/depots
+      # Checkpoints & backup metadata
+      - P4_CKP:/opt/perforce/p4/home/checkpoints
+    networks:
+      - tailscale
+
+networks:
+  tailscale:
+    driver: bridge
+
+volumes:
+  ts_state:
+  P4_P4ROOT:
+  P4_CKP:

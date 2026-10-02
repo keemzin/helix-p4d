@@ -1,0 +1,20 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Ensure shell scripts always have LF line endings regardless of checkout OS
+*.sh text eol=lf
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Documents and configurations
+*.md text
+*.yml text
+*.yaml text
+*.json text
+Dockerfile text
+.dockerignore text
+.gitignore text
+.env.example text

@@ -1,0 +1,51 @@
+# --------------------------------------------------------------------------------
+# Docker Compose for the native Ubuntu Perforce Helix P4D server
+# --------------------------------------------------------------------------------
+#
+# Usage:
+#   cp .env.example .env        # then edit .env as needed
+#   docker compose up -d
+#
+# Live database tables and checkpoints persist in Docker named volumes
+# (P4_P4ROOT, P4_CKP), while versioned depot files persist under ./depots (or NAS).
+
+services:
+  p4d:
+    image: johnsdoes/helix-p4d:2026.1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: helix-p4d
+    restart: unless-stopped
+    ports:
+      - "1666:1666"
+    environment:
+      # Load from .env, with these defaults only applied when unset.
+      NAME: ${NAME:-perforce-server}
+      P4NAME: ${P4NAME:-master}
+      P4TCP: ${P4TCP:-1666}
+      P4PORT: ${P4PORT:-1666}
+      P4USER: ${P4USER:-admin}
+      P4PASSWD: ${P4PASSWD:-pass12349ers}
+      P4CASE: ${P4CASE:--C0}
+      P4CHARSET: ${P4CHARSET:-utf8}
+      JNL_PREFIX: ${JNL_PREFIX:-perforce-server}
+      P4EDITOR: ${P4EDITOR:-nano}
+    volumes:
+      # Server root: contains db tables (/root), configs (/etc), logs, and journals
+      - P4_P4ROOT:/opt/perforce/p4/home/root
+      # Depots: bind-mounted from host directory or NAS (e.g. ./depots or /volume2/P4ROOT)
+      - ${P4DEPOTS_PATH:-./depots}:/opt/perforce/p4/home/depots
+      # Checkpoints & backup metadata
+      - P4_CKP:/opt/perforce/p4/home/checkpoints
+    # Uncomment for SSL. Generate certs first (see README "Running with SSL").
+    # environment:
+    #   P4SSLDIR: /ssl
+    #   P4SSL: ssl
+    #   P4PORT: ssl:1666
+    # volumes:
+    #   - ./ssl:/ssl
+
+volumes:
+  P4_P4ROOT:
+  P4_CKP:

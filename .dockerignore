@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment and sensitive files
+.env
+.env.*
+*.pem
+*.key
+*.csr
+*.crt
+
+# Data and volume directories
+depots/
+p4-home/
+server-root/
+ssl/
+checkpoints/
+my-backups/
+
+# Scripts and documentation not required inside the container image
+*.ps1
+*.bat
+*.sh
+!files/*.sh
+*.md
+LICENSE
+
+# Compose files
+docker-compose*.yml
+
+# Operating system and editor artifacts
+.DS_Store
+Thumbs.db
+ehthumbs.db
+.vscode/
+.idea/
