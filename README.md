@@ -309,82 +309,52 @@ A multi-client PowerShell load-testing script is included in the repository root
 
 ## Running with SSL
 
-You can enable TLS/SSL encryption for all client connections. Because Perforce requires certificates (`certificate.txt` and `privatekey.txt`) to exist before starting in SSL mode, choose the method that matches your deployment setup:
+SSL/TLS encryption is fully automated. You can enable encryption simply by setting `P4PORT=ssl:1666` and `P4SSL=ssl`.
 
-### Method 1: Enabling SSL on an Existing Server (Portainer / Synology / Docker)
+The container manages the complete certificate lifecycle:
+* **Automatic Key Generation:** If SSL is requested and certificates are missing, the container automatically generates unique 2048-bit self-signed certificates into persistent storage (`/opt/perforce/p4/home/root/ssl`) on first startup.
+* **Persistent Fingerprints:** Existing certificates are preserved across container updates, redeployments, and host reboots. The server SSL fingerprint never changes unexpectedly.
+* **Custom Certificates:** If you supply your own CA-signed or Let's Encrypt certificates (`certificate.txt` and `privatekey.txt`) in `/opt/perforce/p4/home/root/ssl` or a mounted directory, the container detects and uses them automatically.
 
-If your server is already deployed and running on plain TCP (`1666`), follow these steps to switch to SSL without needing additional host volume mounts:
+---
 
-#### 1. Generate Certificates inside the Persistent Volume
-Open the **Console** (`/bin/bash`) of the running `helix-p4d` container (via Portainer or `docker exec -it helix-p4d bash`):
-```bash
-# Generate certificates inside the persistent P4_P4ROOT volume:
-mkdir -p /opt/perforce/p4/home/root/ssl
-/usr/local/bin/ssl.sh /opt/perforce/p4/home/root/ssl
+### Quick Setup (`docker-compose.yml` or Portainer)
 
-# Also link/copy to the internal root for p4dctl resolution:
-mkdir -p /opt/perforce/p4/home/root/root/ssl
-cp /opt/perforce/p4/home/root/ssl/* /opt/perforce/p4/home/root/root/ssl/
-chown -R perforce:perforce /opt/perforce/p4/home/root/ssl /opt/perforce/p4/home/root/root/ssl
-```
+Set the port with `ssl:` prefix and enable `P4SSL`:
 
-#### 2. Update the Perforce and Service Configuration
-Still inside the container console:
-```bash
-# Log in as admin
-echo "$P4PASSWD" | p4 login
-
-# Set the server listening port to SSL
-p4 configure set perforce-server#P4PORT=ssl:1666
-
-# Update the p4dctl service configuration file:
-sed -i 's|P4SSLDIR.*=.*|P4SSLDIR  =     /opt/perforce/p4/home/root/ssl\n        P4PORT    =     ssl:1666|' /etc/perforce/p4dctl.conf.d/perforce-server.conf
-```
-Verify the config with `cat /etc/perforce/p4dctl.conf.d/perforce-server.conf`. You should see `P4SSLDIR = /opt/perforce/p4/home/root/ssl` and `P4PORT = ssl:1666` inside the `Environment` block.
-
-#### 3. Update Stack Environment Variables
-In your Portainer Stack Editor (or `docker-compose.yml`), update the `p4d` environment variables:
 ```yaml
     environment:
       P4PORT: ssl:1666
       P4SSL: ssl
 ```
-> [!TIP]
-> Keep the certificates inside `/opt/perforce/p4/home/root/ssl`. Because `/opt/perforce/p4/home/root` is already backed by the persistent `P4_P4ROOT` volume, your SSL certificates and configurations will automatically survive container recreations, image updates, and NAS reboots without requiring any additional host volume mounts.
 
-#### 4. Redeploy / Update Stack
-Click **Update the stack** in Portainer (or `docker compose up -d`). Check container logs to verify:
+Or configure via `.env`:
+```bash
+P4PORT=ssl:1666
+P4SSL=ssl
+```
+
+Start or update the stack:
+```powershell
+docker compose up -d
+```
+
+Check the logs to confirm:
 ```text
+SSL requested but certificates missing. Auto-generating self-signed SSL certs...
+Server encryption: encrypted
 Perforce Server [RUNNING]
 ```
 
 ---
 
-### Method 2: Fresh Deployment with Host-Mounted SSL Directory
+### Upgrading an Existing Server to SSL
 
-If you prefer to maintain the certificates in a directory on the Docker host (e.g., `./ssl`):
+If your server was previously deployed on plain `1666`, transitioning to SSL requires **no manual commands**:
+1. In your Portainer Stack Editor or `.env`, change `P4PORT` to `ssl:1666` and add `P4SSL: ssl`.
+2. Redeploy / Update the stack.
+3. The container will automatically generate certificates into your persistent `P4_P4ROOT` volume, update `p4dctl` service settings, and boot up encrypted. All user accounts, permissions, and depots remain completely intact.
 
-1. **Pre-generate the certificates on the host:**
-   ```bash
-   docker compose run --rm --entrypoint /usr/local/bin/ssl.sh p4d /ssl
-   ```
-2. **Configure your `docker-compose.yml`:**
-   ```yaml
-   services:
-     p4d:
-       environment:
-         P4PORT: ssl:1666
-         P4SSL: ssl
-       volumes:
-         - P4_P4ROOT:/opt/perforce/p4/home/root
-         - ${P4DEPOTS_PATH:-./depots}:/opt/perforce/p4/home/depots
-         - P4_CKP:/opt/perforce/p4/home/checkpoints
-         - ./ssl:/ssl
-   ```
-3. **Start the server:**
-   ```bash
-   docker compose up -d
-   ```
 
 ---
 
