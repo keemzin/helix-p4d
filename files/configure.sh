@@ -12,15 +12,21 @@ elif [ ! -e /etc/perforce ]; then
     ln -s "$P4ROOT/etc" /etc/perforce
 fi
 
-# Enable SSL if the server was configured with SSL directory support
-if [ -n "${P4SSLDIR:-}" ]; then
-    echo "Configuring SSL directory (P4SSLDIR=$P4SSLDIR)..."
-    mkdir -p "$P4SSLDIR"
-    chown -R perforce:perforce "$P4SSLDIR" 2>/dev/null || true
-    if [ -f "$P4SSLDIR/privatekey.txt" ]; then
-        chmod 600 "$P4SSLDIR/privatekey.txt"
+# Ensure SSL directory permissions and p4dctl configuration if SSL is active
+if [[ "${P4PORT:-}" == ssl:* ]] || [ -n "${P4SSL:-}" ]; then
+    SSLDIR="${P4SSLDIR:-$P4ROOT/ssl}"
+    CONF_FILE="/etc/perforce/p4dctl.conf.d/$NAME.conf"
+    if [ -f "$CONF_FILE" ]; then
+        if ! grep -q "P4SSLDIR" "$CONF_FILE"; then
+            sed -i "/Environment/a \        P4SSLDIR  =     $SSLDIR" "$CONF_FILE"
+        fi
+        sed -i "s|P4PORT.*=.*|P4PORT    =     $P4PORT|" "$CONF_FILE"
     fi
-    p4 configure set "$NAME#P4SSLDIR=$P4SSLDIR" 2>/dev/null || true
+    if [ -d "$SSLDIR" ]; then
+        chown -R perforce:perforce "$SSLDIR" 2>/dev/null || true
+        chmod 600 "$SSLDIR/privatekey.txt" 2>/dev/null || true
+        chmod 644 "$SSLDIR/certificate.txt" 2>/dev/null || true
+    fi
 fi
 
 # Trust server certificate if SSL port is used

@@ -35,6 +35,22 @@ elif [ ! -e /etc/perforce ]; then
 fi
 
 chown -R perforce:perforce "$P4HOME"
+ 
+# Auto-generate SSL certificates if SSL is requested and certificates are missing
+if [[ "${P4PORT:-}" == ssl:* ]] || [ -n "${P4SSL:-}" ]; then
+    SSLDIR="${P4SSLDIR:-$P4ROOT/ssl}"
+    mkdir -p "$SSLDIR"
+    if [ ! -f "$SSLDIR/certificate.txt" ] || [ ! -f "$SSLDIR/privatekey.txt" ]; then
+        echo "SSL requested but certificates missing. Auto-generating self-signed SSL certs in $SSLDIR..."
+        /usr/local/bin/ssl.sh "$SSLDIR"
+    else
+        echo "SSL enabled. Found existing certificates in $SSLDIR."
+    fi
+    # Also ensure internal root path has access for p4dctl default relative ssl path
+    mkdir -p "$P4ROOT/root/ssl"
+    cp -rn "$SSLDIR"/* "$P4ROOT/root/ssl/" 2>/dev/null || true
+    chown -R perforce:perforce "$SSLDIR" "$P4ROOT/root/ssl" 2>/dev/null || true
+fi
 
 # Restore checkpoint if symlink latest exists, otherwise create or start server.
 if [ -L "$P4CKP/latest" ]; then
