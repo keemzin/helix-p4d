@@ -309,24 +309,104 @@ A multi-client PowerShell load-testing script is included in the repository root
 
 ## Running with SSL
 
-1. **Generate certificates:**
+You can enable TLS/SSL encryption for all client connections. Because Perforce requires certificates (`certificate.txt` and `privatekey.txt`) to exist before starting in SSL mode, choose the method that matches your deployment setup:
+
+### Method 1: Enabling SSL on an Existing Server (Portainer / Synology / Docker)
+
+If your server is already deployed and running on plain TCP (`1666`), follow these steps to switch to SSL without needing additional host volume mounts:
+
+#### 1. Generate Certificates inside the Persistent Volume
+Open the **Console** (`/bin/bash`) of the running `helix-p4d` container (via Portainer or `docker exec -it helix-p4d bash`):
+```bash
+# Generate certificates inside the persistent P4_P4ROOT volume:
+mkdir -p /opt/perforce/p4/home/root/ssl
+/usr/local/bin/ssl.sh /opt/perforce/p4/home/root/ssl
+
+# Also link/copy to the internal root for p4dctl resolution:
+mkdir -p /opt/perforce/p4/home/root/root/ssl
+cp /opt/perforce/p4/home/root/ssl/* /opt/perforce/p4/home/root/root/ssl/
+chown -R perforce:perforce /opt/perforce/p4/home/root/ssl /opt/perforce/p4/home/root/root/ssl
+```
+
+#### 2. Update the Perforce and Service Configuration
+Still inside the container console:
+```bash
+# Log in as admin
+echo "$P4PASSWD" | p4 login
+
+# Set the server listening port to SSL
+p4 configure set perforce-server#P4PORT=ssl:1666
+
+# Update the p4dctl service configuration file:
+sed -i 's|P4SSLDIR.*=.*|P4SSLDIR  =     /opt/perforce/p4/home/root/ssl\n        P4PORT    =     ssl:1666|' /etc/perforce/p4dctl.conf.d/perforce-server.conf
+```
+Verify the config with `cat /etc/perforce/p4dctl.conf.d/perforce-server.conf`. You should see `P4SSLDIR = /opt/perforce/p4/home/root/ssl` and `P4PORT = ssl:1666` inside the `Environment` block.
+
+#### 3. Update Stack Environment Variables
+In your Portainer Stack Editor (or `docker-compose.yml`), update the `p4d` environment variables:
+```yaml
+    environment:
+      P4PORT: ssl:1666
+      P4SSL: ssl
+```
+> [!TIP]
+> Keep the certificates inside `/opt/perforce/p4/home/root/ssl`. Because `/opt/perforce/p4/home/root` is already backed by the persistent `P4_P4ROOT` volume, your SSL certificates and configurations will automatically survive container recreations, image updates, and NAS reboots without requiring any additional host volume mounts.
+
+#### 4. Redeploy / Update Stack
+Click **Update the stack** in Portainer (or `docker compose up -d`). Check container logs to verify:
+```text
+Perforce Server [RUNNING]
+```
+
+---
+
+### Method 2: Fresh Deployment with Host-Mounted SSL Directory
+
+If you prefer to maintain the certificates in a directory on the Docker host (e.g., `./ssl`):
+
+1. **Pre-generate the certificates on the host:**
    ```bash
    docker compose run --rm --entrypoint /usr/local/bin/ssl.sh p4d /ssl
    ```
-2. **Enable SSL in `docker-compose.yml`:**
+2. **Configure your `docker-compose.yml`:**
    ```yaml
-   environment:
-     P4SSLDIR: /ssl
-     P4SSL: ssl
-     P4PORT: ssl:1666
-   volumes:
-     - ./ssl:/ssl
+   services:
+     p4d:
+       environment:
+         P4PORT: ssl:1666
+         P4SSL: ssl
+       volumes:
+         - P4_P4ROOT:/opt/perforce/p4/home/root
+         - ${P4DEPOTS_PATH:-./depots}:/opt/perforce/p4/home/depots
+         - P4_CKP:/opt/perforce/p4/home/checkpoints
+         - ./ssl:/ssl
    ```
-3. **Restart the container:**
-   ```powershell
+3. **Start the server:**
+   ```bash
    docker compose up -d
    ```
-   *Clients must prefix the port with `ssl:` (e.g., `ssl:localhost:1666`).*
+
+---
+
+### Connecting to an SSL-Enabled Server
+
+* **From P4V (Visual Client):**
+  * **Recommended:** Go to top menu **Connection** → **Open Connection...**
+    * **Server:** `ssl:192.168.x.x:1666` (or `ssl:100.x.x.x:1666` over Tailscale)
+    * **User:** your username (e.g. `ali`, `gofer`)
+    * **Workspace:** your client workspace
+    * Click **OK** and enter your password.
+  * If using the **Connection Setup Wizard**:
+    * **Host:** `ssl:192.168.x.x`
+    * **Port number:** `1666`
+    * Click **Browse...** to select your user so the **Next** button validates.
+  * When prompted with the SSL fingerprint warning on first connection, click **Trust** (or **Yes**) to save the fingerprint.
+* **From Command Line (`p4` CLI):**
+  Trust the server fingerprint once, then log in:
+  ```powershell
+  p4 -p ssl:192.168.x.x:1666 trust -y
+  p4 -p ssl:192.168.x.x:1666 -u admin login
+  ```
 
 ---
 

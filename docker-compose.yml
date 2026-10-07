@@ -24,7 +24,8 @@ services:
       NAME: ${NAME:-perforce-server}
       P4NAME: ${P4NAME:-master}
       P4TCP: ${P4TCP:-1666}
-      P4PORT: ${P4PORT:-1666}
+      P4PORT: ${P4PORT:-1666}        # Set P4PORT=ssl:1666 in .env for SSL
+      P4SSL: ${P4SSL:-}              # Set P4SSL=ssl in .env for SSL
       P4USER: ${P4USER:-admin}
       P4PASSWD: ${P4PASSWD:-pass12349ers}
       P4CASE: ${P4CASE:--C0}
@@ -38,13 +39,8 @@ services:
       - ${P4DEPOTS_PATH:-./depots}:/opt/perforce/p4/home/depots
       # Checkpoints & backup metadata
       - P4_CKP:/opt/perforce/p4/home/checkpoints
-    # Uncomment for SSL. Generate certs first (see README "Running with SSL").
-    # environment:
-    #   P4SSLDIR: /ssl
-    #   P4SSL: ssl
-    #   P4PORT: ssl:1666
-    # volumes:
-    #   - ./ssl:/ssl
+      # Uncomment if using host-mounted SSL directory (see README "Running with SSL")
+      # - ./ssl:/ssl
 
 volumes:
   P4_P4ROOT:
