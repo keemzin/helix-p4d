@@ -40,6 +40,9 @@ docker compose logs -f
 
 Use this setup on Synology NAS, Portainer, or cloud VPS to allow remote team members to connect securely over [Tailscale](https://tailscale.com) without opening or publishing any ports to the LAN or public internet.
 
+<img width="2752" height="1536" alt="by_gemini" src="https://github.com/user-attachments/assets/3d2220e7-0418-4d41-bfcd-06bb7447be28" />
+
+
 ```
                         HOW EVERYONE CONNECTS
  ┌──────────────────────────────────────────────────────────────────┐
