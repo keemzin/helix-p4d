@@ -58,6 +58,21 @@ RUN \
              /usr/local/bin/ssl.sh
 
 # --------------------------------------------------------------------------------
+# Timezone
+# --------------------------------------------------------------------------------
+
+# Install tzdata and set a default timezone. Override at build time with:
+#   docker build --build-arg TZ=America/New_York ...
+# or at runtime via the TZ environment variable in docker-compose.yml.
+ARG TZ=Asia/Kuala_Lumpur
+ENV TZ=$TZ
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo "$TZ" > /etc/timezone
+
+# --------------------------------------------------------------------------------
 # Docker ENVIRONMENT
 # --------------------------------------------------------------------------------
 

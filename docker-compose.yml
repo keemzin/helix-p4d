@@ -32,6 +32,7 @@ services:
       P4CHARSET: ${P4CHARSET:-utf8}
       JNL_PREFIX: ${JNL_PREFIX:-perforce-server}
       P4EDITOR: ${P4EDITOR:-nano}
+      TZ: ${TZ:-Asia/Kuala_Lumpur}
     volumes:
       # Server root: contains db tables (/root), configs (/etc), logs, and journals
       - P4_P4ROOT:/opt/perforce/p4/home/root
